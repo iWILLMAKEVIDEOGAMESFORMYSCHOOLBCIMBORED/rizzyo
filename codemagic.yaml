@@ -1,0 +1,50 @@
+workflows:
+  ios-workflow:
+    name: Rizz AI iOS Build
+    max_build_duration: 60
+    environment:
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install XcodeGen
+        script: brew install xcodegen
+
+      - name: Generate Xcode project
+        script: xcodegen generate
+
+      - name: Set code signing to manual (no paid account needed for dev build)
+        script: |
+          sed -i '' 's/DEVELOPMENT_TEAM = ""/DEVELOPMENT_TEAM = ""/g' RizzAI.xcodeproj/project.pbxproj || true
+
+      - name: Build IPA
+        script: |
+          xcodebuild \
+            -project RizzAI.xcodeproj \
+            -scheme RizzAI \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination generic/platform=iOS \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=NO \
+            clean build \
+            CONFIGURATION_BUILD_DIR=$CM_BUILD_DIR/build
+
+          # Package into IPA
+          mkdir -p $CM_BUILD_DIR/Payload
+          cp -r $CM_BUILD_DIR/build/RizzAI.app $CM_BUILD_DIR/Payload/
+          cd $CM_BUILD_DIR
+          zip -r RizzAI.ipa Payload/
+
+    artifacts:
+      - $CM_BUILD_DIR/RizzAI.ipa
+      - $CM_BUILD_DIR/build/**/*.app
+
+    publishing:
+      email:
+        recipients:
+          - "your@email.com"   # ← change this to your email
+        notify:
+          success: true
+          failure: true
